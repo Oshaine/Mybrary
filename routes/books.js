@@ -1,22 +1,13 @@
 const express = require('express')
 const author = require('../models/author')
 const router = express.Router()
-const path = require('path')
-const fs = require('fs')
+
 // Model
 const Book = require('../models/book')
 const Author = require('../models/author')
 
-const uploadPath = path.join('public', Book.coverImagePath)
 const imageMineTypes = ['image/jpeg', 'image/png', 'image/gif']
-const multer = require('multer')
-const upload = multer({
-    dest: uploadPath,
-    fileFilter: (req, file, callback) => {
-        callback(null, imageMineTypes.includes(file.mimetype))
 
-    }
-})
 
 
 
@@ -54,37 +45,38 @@ router.get('/new', async (req, res) => {
 })
 
 // Create Book Route
-router.post('/', upload.single('cover'), async (req, res) => {
-    const fileName = req.file != null ? req.file.filename : null
+router.post('/', async (req, res) => {
     const book = new Book({
         title: req.body.title,
         author: req.body.author.trim(),
         publishDate: new Date(req.body.publishDate),
         pageCount: req.body.pageCount,
-        coverImageName: fileName,
         description: req.body.description
     })
+
+
+    saveCover(book, req.body.cover)
 
     try {
         const newBook = await book.save()
         // res.redirect(`books/${newBook.id}`)
         res.redirect(`books`)
     } catch (error) {
-
-        if (book.coverImageName != null) {
-            // remove book cover if error
-            removeBookCover(book.coverImageName)
-
-        } renderNewPage(res, book, true)
+ renderNewPage(res, book, true)
     }
 })
 
-// Remove book cover
-function removeBookCover(fileName) {
-    fs.unlink(path.join(uploadPath, fileName), err => {
-        if (err) console.error(err)
-    })
+// Save Cover
+function saveCover(book, coverEncoded) {
+    if (coverEncoded == null) return
+    const cover = JSON.parse(coverEncoded)
+    if (cover != null && imageMineTypes.includes(cover.type)) {
+        book.coverImage = new Buffer.from(cover.data, 'base64')
+        book.coverImageType = cover.type
+    }
 }
+
+
 
 async function renderNewPage(res, book, hasError = false) {
     try {
